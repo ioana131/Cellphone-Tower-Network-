@@ -122,6 +122,6 @@ Examples:
 
 # How to Run the Project
 
-## Install dependencies
-```bash
 npm install
+npm run dev
+http://localhost:5173 
