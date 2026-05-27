@@ -1,7 +1,9 @@
 class HeapNode {
   constructor(value, priority) {
+    // one node in the heap
     this.value = value;
     this.priority = priority;
+
     this.left = null;
     this.right = null;
     this.parent = null;
@@ -20,11 +22,13 @@ class MinHeap {
   insert(value, priority) {
     const newNode = new HeapNode(value, priority);
 
+    // first inserted node becomes root
     if (!this.root) {
       this.root = newNode;
       return;
     }
 
+    // find first free position level by level
     const queue = [this.root];
 
     while (queue.length > 0) {
@@ -55,6 +59,7 @@ class MinHeap {
       return null;
     }
 
+    // root contains the smallest priority
     const minNode = {
       value: this.root.value,
       priority: this.root.priority,
@@ -62,26 +67,31 @@ class MinHeap {
 
     const deepestNode = this.getDeepestNode();
 
+    // case with only one node
     if (deepestNode === this.root) {
       this.root = null;
       return minNode;
     }
 
+    // replace root with deepest node
     this.root.value = deepestNode.value;
     this.root.priority = deepestNode.priority;
 
+    // remove deepest node
     if (deepestNode.parent.left === deepestNode) {
       deepestNode.parent.left = null;
     } else {
       deepestNode.parent.right = null;
     }
 
+    // restore min heap order
     this.heapifyDown(this.root);
 
     return minNode;
   }
 
   heapifyUp(node) {
+    // move node up while its priority is smaller than parent's priority
     while (
       node.parent &&
       node.priority < node.parent.priority
@@ -101,6 +111,7 @@ class MinHeap {
   }
 
   heapifyDown(node) {
+    // move node down until the smallest priority is on top
     while (node) {
       let smallest = node;
 
@@ -141,6 +152,7 @@ class MinHeap {
       return null;
     }
 
+    // finds last node in level-order traversal
     const queue = [this.root];
     let current = this.root;
 
@@ -164,6 +176,7 @@ class MinHeap {
       return null;
     }
 
+    // returns smallest node without removing it
     return {
       value: this.root.value,
       priority: this.root.priority,
@@ -173,6 +186,7 @@ class MinHeap {
   toTreeArray() {
     const result = [];
 
+    // converts heap into array format for visualization
     const traverse = (node, index = 0, parentIndex = null) => {
       if (!node) {
         return;

@@ -7,12 +7,11 @@ class HeapNode {
     this.parent = null;
   }
 }
-
 class MaxHeap {
   constructor() {
+    // heap starts empty
     this.root = null;
   }
-
   isEmpty() {
     return this.root === null;
   }
@@ -20,28 +19,36 @@ class MaxHeap {
   insert(value, priority) {
     const newNode = new HeapNode(value, priority);
 
+    // first inserted node becomes root
     if (!this.root) {
       this.root = newNode;
       return;
     }
-
+  
+//must find where to place next node 
     const queue = [this.root];
 
     while (queue.length > 0) {
       const current = queue.shift();
 
+      // insert as left child
       if (!current.left) {
         current.left = newNode;
         newNode.parent = current;
+
+        // restore max heap property
         this.heapifyUp(newNode);
         return;
       }
 
       queue.push(current.left);
 
+      // insert as right child
       if (!current.right) {
         current.right = newNode;
         newNode.parent = current;
+
+        // restore max heap property
         this.heapifyUp(newNode);
         return;
       }
@@ -55,6 +62,7 @@ class MaxHeap {
       return null;
     }
 
+    // saves the root node before replacing it
     const maxNode = {
       value: this.root.value,
       priority: this.root.priority,
@@ -62,26 +70,31 @@ class MaxHeap {
 
     const deepestNode = this.getDeepestNode();
 
+    // case with only one node
     if (deepestNode === this.root) {
       this.root = null;
       return maxNode;
     }
 
+    // replace root with deepest node
     this.root.value = deepestNode.value;
     this.root.priority = deepestNode.priority;
 
+    // remove deepest node
     if (deepestNode.parent.left === deepestNode) {
       deepestNode.parent.left = null;
     } else {
       deepestNode.parent.right = null;
     }
 
+    // restore heap structure
     this.heapifyDown(this.root);
 
     return maxNode;
   }
 
   heapifyUp(node) {
+    // move node upward while priority is larger
     while (
       node.parent &&
       node.priority > node.parent.priority
@@ -101,6 +114,7 @@ class MaxHeap {
   }
 
   heapifyDown(node) {
+    // move node downward until heap is valid again
     while (node) {
       let largest = node;
 
@@ -118,10 +132,12 @@ class MaxHeap {
         largest = node.right;
       }
 
+      // stop if current node is already largest
       if (largest === node) {
         break;
       }
 
+      // swap values and priorities
       [node.value, largest.value] = [
         largest.value,
         node.value,
@@ -141,6 +157,7 @@ class MaxHeap {
       return null;
     }
 
+    // finds last node in the heap
     const queue = [this.root];
     let current = this.root;
 

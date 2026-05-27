@@ -52,7 +52,7 @@ onResetConnections,
             Auto Rebalance Users
           </button>
           <span className="algo-note">
-            Uses MaxHeap
+          
           </span>
         </div>
       </div>
@@ -80,12 +80,7 @@ onResetConnections,
         <span className="algo-note">Uses MinHeap</span>
       </div>
 
-      <div className="action-with-note">
-        <button onClick={() => onBuildTowerIndex("")}>
-          Build Tower B-Tree Index
-        </button>
-        <span className="algo-note">Uses B-Tree</span>
-      </div>
+      
     </div>
 
     <div className="control-row network-actions-row">
@@ -160,7 +155,7 @@ onResetConnections,
 
       <div className="action-with-note">
         <button onClick={() => onBuildTowerIndex(btreeSearchId)}>
-          Search Tower in B-Tree
+          Traverse / Search B-Tree
         </button>
         <span className="algo-note">Searches by tower ID</span>
       </div>

@@ -69,8 +69,7 @@ const buildTowerIndex = (searchedId = "") => {
   }
 
   setMessage(
-    `Tower ${foundTower.id} found | Current users: ${foundTower.currentUsers} | Maximum capacity: ${foundTower.maximumCapacity} | Available capacity: ${foundTower.availableCapacity}`
-  );
+`Tower ${foundTower.id} found | Current users: ${foundTower.currentUsers} | Maximum capacity: ${foundTower.maximumCapacity} | Available capacity: ${foundTower.maximumCapacity - foundTower.currentUsers}`  );
 };
   const getDynamicEdgeCost = (edge) => {
     const baseCost = Number.isFinite(Number(edge.cost))
