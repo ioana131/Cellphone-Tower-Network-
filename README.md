@@ -13,7 +13,7 @@ The application represents a cellphone tower system as a graph:
 
 The user can interact with the network through buttons and see the result directly on the graph.
 
-## Data Structures and Algorithms Used
+## Data Structures Used
 
 ### Disjoint Set
 
