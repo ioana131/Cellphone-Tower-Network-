@@ -17,18 +17,20 @@ import DisjointSet from "./algorithms/DisjointSet";
 import MaxHeap from "./algorithms/MaxHeap";
 
 function App() {
-const [connectionList, setConnectionList] = useState(connections);
-const [selectedConnection, setSelectedConnection] = useState("");  const [message, setMessage] = useState("");
+  // main application states for connections, messages, highlights and UI behavior
+  const [connectionList, setConnectionList] = useState(connections);
+  const [selectedConnection, setSelectedConnection] = useState("");
+  const [message, setMessage] = useState("");
   const [loadBalanceMessage, setLoadBalanceMessage] = useState("");
   const [highlightedEdges, setHighlightedEdges] = useState([]);
   const [highlightedTowers, setHighlightedTowers] = useState([]);
   const [rebalanceSummary, setRebalanceSummary] = useState(null);
   const [zoom, setZoom] = useState(1);
-  const [selectedStart, setSelectedStart] = useState("A");
-  const [selectedEnd, setSelectedEnd] = useState("F");
   const [heapView, setHeapView] = useState([]);
   const graphPanelRef = useRef(null);
   const [connectionCostMode, setConnectionCostMode] = useState("normal");
+
+  // custom hook that manages tower data and helper functions
   const {
     towerList,
     setTowerList,
@@ -37,73 +39,90 @@ const [selectedConnection, setSelectedConnection] = useState("");  const [messag
   } = useTowerManagement({
     initialTowers: towers,
   });
-const buildTowerIndex = (searchedId = "") => {
-  const btree = new BTree(2);
 
-  towerList.forEach((tower) => {
-    btree.insert(tower);
-  });
+  // builds a B-Tree with all towers
+  // if no ID is entered, it displays the towers in sorted order
+  // if an ID is entered, it searches that tower in the B-Tree
+  const buildTowerIndex = (searchedId = "") => {
+    const btree = new BTree(2);
 
-  console.log("B-Tree tower index:", btree.root);
+    towerList.forEach((tower) => {
+      btree.insert(tower);
+    });
 
-  const sortedTowers = btree.traverse();
+    console.log("B-Tree tower index:", btree.root);
 
-  if (!searchedId) {
+    const sortedTowers = btree.traverse();
+
+    if (!searchedId) {
+      setMessage(
+        `B-Tree built successfully. Towers in sorted order: ${sortedTowers
+          .map((tower) => tower.id)
+          .join(", ")}`
+      );
+      return;
+    }
+
+    const foundTower = btree.search(searchedId);
+
+    if (!foundTower) {
+      setMessage(`Tower ${searchedId} was not found in the B-Tree index.`);
+      return;
+    }
+
     setMessage(
-      `B-Tree tower index built. Sorted tower IDs: ${sortedTowers
-        .map((tower) => tower.id)
-        .join(", ")}`
+      `Tower ${foundTower.id} found | Current users: ${foundTower.currentUsers} | Maximum capacity: ${foundTower.maximumCapacity} | Available capacity: ${
+        foundTower.maximumCapacity - foundTower.currentUsers
+      }`
     );
+  };
 
-    return;
-  }
-
-  const foundTower = btree.search(searchedId);
-
-  if (!foundTower) {
-    setMessage(
-      `Tower ${searchedId} was not found in the B-Tree index.`
-    );
-
-    return;
-  }
-
-  setMessage(
-`Tower ${foundTower.id} found | Current users: ${foundTower.currentUsers} | Maximum capacity: ${foundTower.maximumCapacity} | Available capacity: ${foundTower.maximumCapacity - foundTower.currentUsers}`  );
-};
+  // calculates a dynamic edge cost by adding congestion penalties
   const getDynamicEdgeCost = (edge) => {
-    const baseCost = Number.isFinite(Number(edge.cost))
-      ? Number(edge.cost)
-      : 0;
+    const baseCost = Number.isFinite(Number(edge.cost)) ? Number(edge.cost) : 0;
     const fromTower = getTower(edge.from);
     const toTower = getTower(edge.to);
+
     if (!fromTower || !toTower) {
       return baseCost;
     }
+
     const penalty =
       getCongestionPenalty(getLoadRatio(fromTower)) +
       getCongestionPenalty(getLoadRatio(toTower));
+
     return baseCost + penalty;
   };
+
+  // decides the visual load level of each tower
   const getLoadLevel = (tower) => {
     if (tower.maximumCapacity === 0) {
       return "load-low";
     }
+
     const loadRatio = tower.currentUsers / tower.maximumCapacity;
+
     if (loadRatio < 0.5) {
       return "load-low";
     }
+
     if (loadRatio <= 0.8) {
       return "load-medium";
     }
+
     return "load-overloaded";
   };
+
+  // clears previous algorithm highlights from the graph
   const clearHighlights = () => {
     setHighlightedEdges([]);
     setHighlightedTowers([]);
   };
+
+  // simulates random traffic by assigning random users to every tower
   const simulateRandomTraffic = () => {
     clearHighlights();
+
     setTowerList((currentTowers) =>
       currentTowers.map((tower) => {
         const randomUsers = Math.floor(
@@ -124,106 +143,109 @@ const buildTowerIndex = (searchedId = "") => {
       warnings: [],
     });
   };
-const findLeastLoadedTower = () => {
-  clearHighlights();
 
-  if (towerList.length === 0) {
-    setMessage("No towers available.");
-    return;
-  }
+  // uses MinHeap to find the tower with the smallest number of active users
+  const findLeastLoadedTower = () => {
+    clearHighlights();
 
-  const heap = new MinHeap();
+    if (towerList.length === 0) {
+      setMessage("No towers available.");
+      return;
+    }
 
-  towerList.forEach((tower) => {
-    heap.insert(tower.id, tower.currentUsers);
-  });
+    const heap = new MinHeap();
 
-  console.log(heap.toTreeArray());
+    towerList.forEach((tower) => {
+      heap.insert(tower.id, tower.currentUsers);
+    });
 
-  const leastLoadedTower = heap.extractMin();
+    console.log(heap.toTreeArray());
 
-  if (!leastLoadedTower) {
-    setMessage("No tower found.");
-    return;
-  }
+    const leastLoadedTower = heap.extractMin();
 
-  setHighlightedTowers([leastLoadedTower.value]);
+    if (!leastLoadedTower) {
+      setMessage("No tower found.");
+      return;
+    }
 
-  setMessage(
-    `Least loaded tower: ${leastLoadedTower.value} with ${leastLoadedTower.priority} active users.`
-  );
-};
-const findCheapestConnection = () => {
-  clearHighlights();
+    setHighlightedTowers([leastLoadedTower.value]);
 
-  if (connectionList.length === 0) {
-    setMessage("No connections available.");
-    return;
-  }
-
-  const heap = new MinHeap();
-
-  connectionList.forEach((connection) => {
-    const cost =
-      connectionCostMode === "dynamic"
-        ? getDynamicEdgeCost(connection)
-        : connection.cost;
-
-    heap.insert(
-      `${connection.from}-${connection.to}`,
-      cost
+    setMessage(
+      `Least loaded tower: ${leastLoadedTower.value} with ${leastLoadedTower.priority} active users.`
     );
-  });
+  };
 
-  const cheapestConnection = heap.extractMin();
+  // uses MinHeap to find the connection with the smallest cost
+  const findCheapestConnection = () => {
+    clearHighlights();
 
-  if (!cheapestConnection) {
-    setMessage("No cheapest connection found.");
-    return;
-  }
+    if (connectionList.length === 0) {
+      setMessage("No connections available.");
+      return;
+    }
 
-  const [from, to] = cheapestConnection.value.split("-");
+    const heap = new MinHeap();
 
-  setHighlightedEdges([{ from, to }]);
+    connectionList.forEach((connection) => {
+      const cost =
+        connectionCostMode === "dynamic"
+          ? getDynamicEdgeCost(connection)
+          : connection.cost;
 
-  setMessage(
-    `Cheapest ${connectionCostMode} connection found: ${from} - ${to} with cost ${cheapestConnection.priority}.`
-  );
-};
+      heap.insert(`${connection.from}-${connection.to}`, cost);
+    });
 
+    const cheapestConnection = heap.extractMin();
 
-    
-const findBestAvailableTower = () => {
-  clearHighlights();
+    if (!cheapestConnection) {
+      setMessage("No cheapest connection found.");
+      return;
+    }
 
-  if (towerList.length === 0) {
-    setLoadBalanceMessage("No towers available.");
-    return;
-  }
+    const [from, to] = cheapestConnection.value.split("-");
 
-  const heap = new MaxHeap();
+    setHighlightedEdges([{ from, to }]);
 
-  towerList.forEach((tower) => {
-    const availableCapacity = getAvailableCapacity(tower);
+    setMessage(
+      `Cheapest ${connectionCostMode} connection found: ${from} - ${to} with cost ${cheapestConnection.priority}.`
+    );
+  };
 
-    heap.insert(tower.id, availableCapacity);
-  });
+  // uses MaxHeap to find the tower with the highest available capacity
+  const findBestAvailableTower = () => {
+    clearHighlights();
 
-  setHeapView(heap.toTreeArray ? heap.toTreeArray() : []);
+    if (towerList.length === 0) {
+      setLoadBalanceMessage("No towers available.");
+      return;
+    }
 
-  const best = heap.extractMax();
+    const heap = new MaxHeap();
 
-  if (!best) {
-    setLoadBalanceMessage("No tower available.");
-    return;
-  }
+    towerList.forEach((tower) => {
+      const availableCapacity = getAvailableCapacity(tower);
+      heap.insert(tower.id, availableCapacity);
+    });
 
-  setHighlightedTowers([best.value]);
+    setHeapView(heap.toTreeArray ? heap.toTreeArray() : []);
 
-  setLoadBalanceMessage(
-    `Best available tower: ${best.value} with ${best.priority} free spots.`
-  );
-};
+    const best = heap.extractMax();
+
+    if (!best) {
+      setLoadBalanceMessage("No tower available.");
+      return;
+    }
+
+    setHighlightedTowers([best.value]);
+
+    setLoadBalanceMessage(
+      `Best available tower: ${best.value} with ${best.priority} free spots.`
+    );
+  };
+
+  // automatic load balancing
+  // overloaded towers send users to towers with the most free capacity
+  // MaxHeap is used to always choose the best destination tower
   const autoRebalanceUsers = () => {
     clearHighlights();
 
@@ -261,12 +283,8 @@ const findBestAvailableTower = () => {
     const involvedTowerIds = new Set();
 
     overloadedTowers.forEach((overloadedTower) => {
-      const targetUsers = Math.floor(
-        overloadedTower.maximumCapacity * 0.8
-      );
-
-      let usersToMove =
-        overloadedTower.currentUsers - targetUsers;
+      const targetUsers = Math.floor(overloadedTower.maximumCapacity * 0.8);
+      let usersToMove = overloadedTower.currentUsers - targetUsers;
 
       involvedTowerIds.add(overloadedTower.id);
 
@@ -280,7 +298,7 @@ const findBestAvailableTower = () => {
         const availableCapacity = getAvailableCapacity(tower);
 
         if (availableCapacity > 0) {
-         heap.insert(tower.id, availableCapacity);
+          heap.insert(tower.id, availableCapacity);
         }
       });
 
@@ -308,20 +326,13 @@ const findBestAvailableTower = () => {
           continue;
         }
 
-        const usersToTransfer = Math.min(
-          usersToMove,
-          availableCapacity
-        );
+        const usersToTransfer = Math.min(usersToMove, availableCapacity);
 
         overloadedTower.currentUsers -= usersToTransfer;
-        overloadedTower.availableCapacity = getAvailableCapacity(
-          overloadedTower
-        );
+        overloadedTower.availableCapacity = getAvailableCapacity(overloadedTower);
 
         destinationTower.currentUsers += usersToTransfer;
-        destinationTower.availableCapacity = getAvailableCapacity(
-          destinationTower
-        );
+        destinationTower.availableCapacity = getAvailableCapacity(destinationTower);
 
         involvedTowerIds.add(destinationTower.id);
 
@@ -331,11 +342,10 @@ const findBestAvailableTower = () => {
 
         usersToMove -= usersToTransfer;
 
-        const remainingCapacity =
-          getAvailableCapacity(destinationTower);
+        const remainingCapacity = getAvailableCapacity(destinationTower);
 
         if (remainingCapacity > 0) {
-heap.insert(destinationTower.id, remainingCapacity);
+          heap.insert(destinationTower.id, remainingCapacity);
         }
       }
     });
@@ -349,35 +359,40 @@ heap.insert(destinationTower.id, remainingCapacity);
       warnings,
     });
   };
-const disableSelectedConnection = () => {
-  clearHighlights();
 
-  if (!selectedConnection) {
-    setMessage("Please select a connection first.");
-    return;
-  }
+  // removes the selected connection from the graph
+  const disableSelectedConnection = () => {
+    clearHighlights();
 
-  const [from, to] = selectedConnection.split("-");
+    if (!selectedConnection) {
+      setMessage("Please select a connection first.");
+      return;
+    }
 
-  setConnectionList((currentConnections) =>
-    currentConnections.filter(
-      (connection) =>
-        !(
-          (connection.from === from && connection.to === to) ||
-          (connection.from === to && connection.to === from)
-        )
-    )
-  );
+    const [from, to] = selectedConnection.split("-");
 
-  setMessage(`Connection ${from} - ${to} disabled.`);
-};
+    setConnectionList((currentConnections) =>
+      currentConnections.filter(
+        (connection) =>
+          !(
+            (connection.from === from && connection.to === to) ||
+            (connection.from === to && connection.to === from)
+          )
+      )
+    );
 
-const resetConnections = () => {
-  clearHighlights();
-  setConnectionList(connections);
-  setSelectedConnection("");
-  setMessage("All connections restored.");
-};
+    setMessage(`Connection ${from} - ${to} disabled.`);
+  };
+
+  // restores the original graph connections
+  const resetConnections = () => {
+    clearHighlights();
+    setConnectionList(connections);
+    setSelectedConnection("");
+    setMessage("All connections restored.");
+  };
+
+  // uses Disjoint Set to check if all towers are in the same connected component
   const checkConnectivity = () => {
     clearHighlights();
 
@@ -394,9 +409,7 @@ const resetConnections = () => {
 
     const firstRoot = ds.find(towerIds[0]);
 
-    const connected = towerIds.every(
-      (id) => ds.find(id) === firstRoot
-    );
+    const connected = towerIds.every((id) => ds.find(id) === firstRoot);
 
     setMessage(
       connected
@@ -405,9 +418,7 @@ const resetConnections = () => {
     );
   };
 
- 
-
-
+  // checks if an edge should be highlighted in the graph
   const isHighlighted = (edge) => {
     return highlightedEdges.some(
       (highlightedEdge) =>
@@ -417,26 +428,35 @@ const resetConnections = () => {
           highlightedEdge.to === edge.from)
     );
   };
+
+  // adds mouse wheel zoom behavior to the graph panel
   useEffect(() => {
     const graphPanel = graphPanelRef.current;
+
     if (!graphPanel) {
       return;
     }
+
     const handleWheel = (event) => {
       event.preventDefault();
       event.stopPropagation();
+
       const zoomSpeed = 0.015;
+
       setZoom((currentZoom) => {
         const nextZoom =
           event.deltaY < 0
             ? currentZoom + zoomSpeed
             : currentZoom - zoomSpeed;
+
         return Math.min(Math.max(nextZoom, 0.6), 2.2);
       });
     };
+
     graphPanel.addEventListener("wheel", handleWheel, {
       passive: false,
     });
+
     return () => {
       graphPanel.removeEventListener("wheel", handleWheel);
     };
@@ -449,30 +469,23 @@ const resetConnections = () => {
       <div className="dashboard">
         <div className="main-layout">
           <section className="main-panel">
-            <h2 className="main-panel-title">
-             Data Structures
-            </h2>
+            <h2 className="main-panel-title">Data Structures</h2>
 
             <section className="control-card algorithm-card">
-              <div className="control-row">
-               
-              </div>
               <AlgorithmControls
                 variant="algorithms"
                 message={message}
                 onCheckConnectivity={checkConnectivity}
-          
-                  onBuildTowerIndex={buildTowerIndex}
-                  onFindLeastLoadedTower={findLeastLoadedTower}
-                  onFindCheapestConnection={findCheapestConnection}
-                  connectionCostMode={connectionCostMode}
-onConnectionCostModeChange={setConnectionCostMode}
-connectionList={connectionList}
-selectedConnection={selectedConnection}
-onSelectConnection={setSelectedConnection}
-onDisableConnection={disableSelectedConnection}
-onResetConnections={resetConnections}
-
+                onBuildTowerIndex={buildTowerIndex}
+                onFindLeastLoadedTower={findLeastLoadedTower}
+                onFindCheapestConnection={findCheapestConnection}
+                connectionCostMode={connectionCostMode}
+                onConnectionCostModeChange={setConnectionCostMode}
+                connectionList={connectionList}
+                selectedConnection={selectedConnection}
+                onSelectConnection={setSelectedConnection}
+                onDisableConnection={disableSelectedConnection}
+                onResetConnections={resetConnections}
               />
             </section>
 
@@ -483,10 +496,10 @@ onResetConnections={resetConnections}
               rebalanceSummary={rebalanceSummary}
               loadBalanceMessage={loadBalanceMessage}
             />
-           
           </section>
         </div>
       </div>
+
       <GraphPanel
         graphPanelRef={graphPanelRef}
         zoom={zoom}
@@ -504,4 +517,5 @@ onResetConnections={resetConnections}
     </div>
   );
 }
+
 export default App;
